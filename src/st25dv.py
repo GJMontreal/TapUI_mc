@@ -1,0 +1,104 @@
+"""
+Minimal ST25DV64K I2C driver.
+
+Reads and writes NDEF Text records from/to the user memory area.
+The iOS app (TapUI) writes a JSON NDEF Text payload; this driver
+parses it and can write back an updated payload (e.g. uptime).
+
+Memory layout (I2C):
+  0x0000–0x0003  CC (Capability Container) — written by iOS, not touched here
+  0x0004+        TLV blocks: 0x03 (NDEF) | length | NDEF message | 0xFE (terminator)
+
+NDEF Text record payload format:
+  status_byte (lang_len in low 6 bits, UTF-8 = 0 in bit 7)
+  language_code ("en")
+  text (JSON string)
+"""
+
+import time
+from machine import I2C
+
+_ADDR = 0x53       # ST25DV user memory I2C address (7-bit)
+_PAGE  = 4         # I2C write granularity (bytes); writes must be 4-byte aligned
+_WRITE_DELAY_MS = 5
+
+
+class ST25DV:
+    def __init__(self, i2c: I2C):
+        self._i2c = i2c
+        self._cc = None  # cached Capability Container (4 bytes)
+
+    # ------------------------------------------------------------------
+    # Low-level memory access
+    # ------------------------------------------------------------------
+
+    def read_bytes(self, addr: int, length: int) -> bytes:
+        self._i2c.writeto(_ADDR, bytes([addr >> 8, addr & 0xFF]))
+        return self._i2c.readfrom(_ADDR, length)
+
+    def _write_page(self, addr: int, data: bytes):
+        """Write exactly 4 bytes to a 4-byte-aligned address."""
+        assert addr % _PAGE == 0 and len(data) == _PAGE
+        self._i2c.writeto(_ADDR, bytes([addr >> 8, addr & 0xFF]) + data)
+        time.sleep_ms(_WRITE_DELAY_MS)
+
+    def _write_block(self, addr: int, data: bytes):
+        """Write arbitrary bytes starting at a 4-byte-aligned address."""
+        assert addr % _PAGE == 0
+        padded = data + b"\x00" * ((-len(data)) % _PAGE)
+        for i in range(0, len(padded), _PAGE):
+            self._write_page(addr + i, padded[i : i + _PAGE])
+
+    # ------------------------------------------------------------------
+    # NDEF helpers
+    # ------------------------------------------------------------------
+
+    def _build_ndef_text(self, text: str) -> bytes:
+        """Return a complete memory image (CC + TLV) for the given text."""
+        if self._cc is None:
+            self._cc = self.read_bytes(0x0000, 4)
+
+        lang = b"en"
+        payload = bytes([len(lang)]) + lang + text.encode("utf-8")
+        # NDEF record: MB=1 ME=1 SR=1 TNF=Well-Known, Type="T"
+        record = bytes([0xD1, 0x01, len(payload), 0x54]) + payload
+        tlv = bytes([0x03, len(record)]) + record + bytes([0xFE])
+        return self._cc + tlv
+
+    def _parse_ndef_text(self, msg: bytes) -> str | None:
+        """Extract the text string from a raw NDEF message."""
+        if len(msg) < 5:
+            return None
+        type_len   = msg[1]
+        payload_len = msg[2]
+        offset     = 3 + type_len          # skip flags, type_len, payload_len, type
+        if offset >= len(msg):
+            return None
+        status   = msg[offset]
+        lang_len = status & 0x3F
+        text_start = offset + 1 + lang_len
+        text_end   = text_start + payload_len - 1 - lang_len
+        return msg[text_start:text_end].decode("utf-8")
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def read_ndef_text(self) -> str | None:
+        """Return the NDEF Text record payload, or None if not found."""
+        data = self.read_bytes(0x0000, 128)
+        i = 4  # skip CC
+        while i < len(data) - 1:
+            t = data[i]
+            if t == 0xFE:
+                break
+            if t == 0x03:
+                length = data[i + 1]
+                return self._parse_ndef_text(data[i + 2 : i + 2 + length])
+            i += 2 + data[i + 1]
+        return None
+
+    def write_ndef_text(self, text: str):
+        """Write a new NDEF Text record to the tag."""
+        image = self._build_ndef_text(text)
+        self._write_block(0x0000, image)
