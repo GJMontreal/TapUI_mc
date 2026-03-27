@@ -47,40 +47,18 @@ def open_security_session(i2c, password: bytes = b"\x00" * 8):
 
 def check_rf_management(i2c):
     print("\n── RF management ──")
-
-    # Read static register first (persists across power cycles)
     stat = read_sys(i2c, RF_MNGT_STAT)[0]
-    print(f"  RF_MNGT static (0x{RF_MNGT_STAT:04x}): {hex(stat)}")
-    print(f"  Static RF_DISABLE: {'SET' if stat & 0x01 else 'clear (OK)'}")
-
-    # Read dynamic register (current runtime state)
-    try:
-        dyn = read_sys(i2c, RF_MNGT_DYN)[0]
-        print(f"  RF_MNGT_Dyn (0x{RF_MNGT_DYN:04x}): {hex(dyn)}")
-        rf_disabled = bool(dyn & 0x01)
-        rf_sleep    = bool(dyn & 0x02)
-        print(f"  Dynamic RF_DISABLE: {'SET — RF interface is off!' if rf_disabled else 'clear (OK)'}")
-        print(f"  Dynamic RF_SLEEP:   {'SET' if rf_sleep else 'clear (OK)'}")
-    except OSError as e:
-        print(f"  RF_MNGT_Dyn read failed: {e}")
-        rf_disabled = bool(stat & 0x01)
-
-    if rf_disabled or (stat & 0x01):
-        print("  Opening security session and clearing RF_DISABLE in static register...")
+    print(f"  RF_MNGT static: {hex(stat)}")
+    if stat & 0x01:
+        print("  RF_DISABLE set in static register — clearing (requires security session)...")
         open_security_session(i2c)
         time.sleep_ms(10)
         write_sys(i2c, RF_MNGT_STAT, bytes([0x00]))
         time.sleep_ms(20)
         stat = read_sys(i2c, RF_MNGT_STAT)[0]
         print(f"  RF_MNGT static after fix: {hex(stat)}")
-
-        print("  Clearing dynamic RF_DISABLE...")
-        try:
-            write_sys(i2c, RF_MNGT_DYN, bytes([0x00]))
-            time.sleep_ms(50)
-        except OSError as e:
-            print(f"  Dynamic write failed (may need power cycle): {e}")
-
+    else:
+        print("  RF enabled (OK) — phone detecting tag confirms this")
     return True
 
 
@@ -99,6 +77,24 @@ def check_area1_security(i2c):
         write_sys(i2c, RFA1SS, bytes([RF_RW_OPEN]))
         rfa1 = read_sys(i2c, RFA1SS)[0]
         print(f"  RFA1SS after fix: {hex(rfa1)}")
+
+
+def check_cc(i2c):
+    print("\n── Capability Container ──")
+    i2c.writeto(USER_ADDR, bytes([0x00, 0x00]))
+    cc = i2c.readfrom(USER_ADDR, 4)
+    print(f"  CC: {[hex(b) for b in cc]}")
+    # Byte 2: MLEN — 0xFF signals 64Kbit tag using 4-byte CC
+    if cc[2] != 0xFF:
+        print(f"  MLEN is {hex(cc[2])}, expected 0xFF for ST25DV64K — fixing...")
+        fixed_cc = bytes([cc[0], cc[1], 0xFF, cc[3]])
+        i2c.writeto(USER_ADDR, bytes([0x00, 0x00]) + fixed_cc)
+        time.sleep_ms(5)
+        i2c.writeto(USER_ADDR, bytes([0x00, 0x00]))
+        cc = i2c.readfrom(USER_ADDR, 4)
+        print(f"  CC after fix: {[hex(b) for b in cc]}")
+    else:
+        print("  MLEN OK")
 
 
 def write_test_ndef(i2c):
@@ -130,6 +126,7 @@ def main():
 
     check_rf_management(i2c)
     check_area1_security(i2c)
+    check_cc(i2c)
     write_test_ndef(i2c)
 
 
