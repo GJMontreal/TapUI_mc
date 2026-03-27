@@ -149,7 +149,7 @@ class ST25DV:
         self._open_security_session()
         self._i2c.writeto(
             _SYS_ADDR,
-            bytes([_GPO_CTRL_REG >> 8, _GPO_CTRL_REG & 0xFF, _GPO_EN | _RF_WRITE_BIT]),
+            bytes([_GPO_CTRL_REG >> 8, _GPO_CTRL_REG & 0xFF, 0xFF]),  # all bits set
         )
         time.sleep_ms(10)  # wait for NVM write to complete
 
