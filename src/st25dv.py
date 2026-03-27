@@ -153,11 +153,6 @@ class ST25DV:
         )
         time.sleep_ms(10)  # wait for NVM write to complete
 
-        # Dynamic register — enables GPO output for current session, no password needed
-        self._i2c.writeto(
-            _SYS_ADDR,
-            bytes([_GPO_CTRL_DYN >> 8, _GPO_CTRL_DYN & 0xFF, _GPO_EN]),
-        )
 
     def clear_interrupt(self):
         """Clear pending GPO interrupt by reading IT_STS_Dyn.

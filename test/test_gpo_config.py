@@ -8,6 +8,7 @@ write stuck. Run with:  mpremote run test/test_gpo_config.py
 
 from machine import I2C, Pin
 from st25dv import ST25DV
+import time
 
 I2C_SDA = 4
 I2C_SCL = 5
@@ -38,6 +39,7 @@ def main():
 
     report(i2c, "before")
     tag.configure_gpo_rf_write()
+    time.sleep_ms(20)
     report(i2c, "after ")
 
     print("\nExpected: static=0x81, dyn=0x01")
