@@ -29,7 +29,7 @@ I2C_SCL  = 5
 GPO_PIN      = 15
 LED_PIN      = 28
 NUM_LEDS     = 16
-HEARTBEAT_PIN = 25    # onboard LED
+HEARTBEAT_PIN = "LED"  # onboard LED (Pico W — routed via WiFi chip)
 
 # ── Timing ────────────────────────────────────────────────────────────
 FRAME_MS       = 16    # ~60 fps for smooth LED animation
