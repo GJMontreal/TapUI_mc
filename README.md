@@ -20,12 +20,10 @@ MicroPython firmware for a Raspberry Pi Pico (RP2040) — the microcontroller si
 | Pico | WS2812 | Notes |
 |------|--------|-------|
 | GP28 | DIN | 300–500Ω series resistor recommended |
-| VBUS (pin 40) | VDD | 5V from USB; use 3V3 only for very dim/short strings |
+| 3V3 | VDD | See note below |
 | GND | GND | |
 
-**WS2812 power:** The ring draws up to ~2.4A at full white (40 LEDs × 60mA). Demo patterns run dimmed and stay well under USB limits, but avoid full-brightness white from USB alone — use an external 5V supply for sustained bright output.
-
-**Level shifting:** GP28 is 3.3V logic; WS2812 at 5V expects ≥3.5V as logic high (0.7 × 5V). A 74AHCT125 buffer between GP28 and DIN is the clean fix — many demos skip it and get away with it, but it's marginal.
+**WS2812 power:** WS2812B are spec'd at 3.5–5.3V, so 3.3V is slightly out of spec. In practice they work reliably at 3.3V — just dimmer. The upside is that 3.3V data also satisfies the logic-high threshold (0.7 × 3.3V = 2.31V), eliminating any level-shifting concern. The Pico's onboard 3.3V regulator is rated 300mA; 16 LEDs at demo brightness levels stay well under that.
 
 ## Deploying
 

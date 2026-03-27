@@ -27,7 +27,7 @@ I2C_SDA  = 4
 I2C_SCL  = 5
 GPO_PIN  = 15
 LED_PIN  = 28
-NUM_LEDS = 40
+NUM_LEDS = 16
 
 # ── Timing ────────────────────────────────────────────────────────────
 FRAME_MS       = 16    # ~60 fps for smooth LED animation

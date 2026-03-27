@@ -18,7 +18,7 @@ Sibling iOS project: `../TapUI` (Swift/SwiftUI).
 | WS2812 DIN   | GP28     | LED ring data in         |
 
 - **NFC tag:** ST25DV64K — dual-interface EEPROM (NFC + I2C). iOS app writes NDEF; Pico reads/writes via I2C at address `0x53`.
-- **LED ring:** 40× WS2812 addressable RGB LEDs. Driven by MicroPython's built-in `neopixel` module (no PIO setup required).
+- **LED ring:** 16× WS2812 addressable RGB LEDs. Driven by MicroPython's built-in `neopixel` module (no PIO setup required). Powered from 3.3V — slightly out of WS2812B spec but reliable at demo brightness levels; eliminates level-shifting on the data line.
 
 ## Tag Memory Layout
 
