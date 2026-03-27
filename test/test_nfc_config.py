@@ -99,7 +99,7 @@ def check_cc(i2c):
 
 def write_test_ndef(i2c):
     print("\n── Writing test NDEF Text record ──")
-    text    = '{"pattern":"solid"}'
+    text    = '{"pattern":"off"}'
     lang    = b"en"
     payload = bytes([len(lang)]) + lang + text.encode()
     record  = bytes([0xD1, 0x01, len(payload), 0x54]) + payload
