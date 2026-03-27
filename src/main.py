@@ -34,7 +34,10 @@ FRAME_MS     = 16    # ~60 fps for smooth LED animation
 HEARTBEAT_MS = 500   # onboard LED toggle interval
 
 # ── Interrupt flag (set in IRQ context, cleared in main loop) ─────────
-_tag_written = False
+_tag_written    = False
+_tag_written_ms = 0   # time of last GPO event
+
+RF_SETTLE_MS = 2000   # wait after GPO fires before accessing I2C
 
 
 def _gpo_irq(_pin):
@@ -43,8 +46,9 @@ def _gpo_irq(_pin):
 
 
 def _set_tag_written(_arg):
-    global _tag_written
-    _tag_written = True
+    global _tag_written, _tag_written_ms
+    _tag_written    = True
+    _tag_written_ms = time.ticks_ms()
 
 
 def main():
@@ -93,7 +97,7 @@ def main():
         now_ms = time.ticks_ms()
 
         # ── Handle GPO interrupt ──────────────────────────────────────
-        if _tag_written:
+        if _tag_written and time.ticks_diff(now_ms, _tag_written_ms) >= RF_SETTLE_MS:
             _tag_written = False
             try:
                 raw = tag.read_ndef_text()
