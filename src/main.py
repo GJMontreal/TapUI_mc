@@ -32,9 +32,8 @@ NUM_LEDS     = 16
 HEARTBEAT_PIN = "LED"  # onboard LED (Pico W — routed via WiFi chip)
 
 # ── Timing ────────────────────────────────────────────────────────────
-FRAME_MS       = 16    # ~60 fps for smooth LED animation
-HEARTBEAT_MS   = 500   # onboard LED toggle interval
-UPTIME_WRITE_S = 5     # how often to write uptime back to tag
+FRAME_MS      = 16    # ~60 fps for smooth LED animation
+HEARTBEAT_MS  = 500   # onboard LED toggle interval
 
 # ── Interrupt flag (set in IRQ context, cleared in main loop) ─────────
 _tag_written = False
@@ -77,9 +76,7 @@ def main():
     except Exception as e:
         print("initial read error:", e)
 
-    last_uptime_write   = 0
-    last_heartbeat_ms   = 0
-    start_ms            = time.ticks_ms()
+    last_heartbeat_ms = 0
     print("TapUI_mc ready — waiting for NFC writes")
 
     while True:
@@ -99,15 +96,6 @@ def main():
 
         # ── Animate LEDs ──────────────────────────────────────────────
         ring.update(pattern, now_ms)
-
-        # ── Write uptime back to tag ──────────────────────────────────
-        uptime_s = time.ticks_diff(now_ms, start_ms) // 1000
-        if uptime_s - last_uptime_write >= UPTIME_WRITE_S:
-            try:
-                tag.write_ndef_text(json.dumps({"pattern": pattern, "uptime": uptime_s}))
-                last_uptime_write = uptime_s
-            except Exception as e:
-                print("write error:", e)
 
         # ── Heartbeat ─────────────────────────────────────────────────
         if time.ticks_diff(now_ms, last_heartbeat_ms) >= HEARTBEAT_MS:
