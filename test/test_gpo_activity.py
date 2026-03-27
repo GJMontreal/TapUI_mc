@@ -11,6 +11,7 @@ Restore RF_WRITE config afterward with:
   mpremote run test/test_gpo_config.py
 """
 
+import time
 from machine import I2C, Pin
 from st25dv import ST25DV
 
@@ -29,6 +30,7 @@ def main():
 
     tag._open_security_session()
     i2c.writeto(SYS_ADDR, bytes([GPO_CTRL_REG >> 8, GPO_CTRL_REG & 0xFF, GPO_EN | RF_ACTIVITY]))
+    time.sleep_ms(10)  # wait for NVM write to complete
 
     i2c.writeto(SYS_ADDR, bytes([GPO_CTRL_REG >> 8, GPO_CTRL_REG & 0xFF]))
     val = i2c.readfrom(SYS_ADDR, 1)[0]

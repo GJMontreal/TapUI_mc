@@ -150,6 +150,7 @@ class ST25DV:
             _SYS_ADDR,
             bytes([_GPO_CTRL_REG >> 8, _GPO_CTRL_REG & 0xFF, _GPO_EN | _RF_WRITE_BIT]),
         )
+        time.sleep_ms(10)  # wait for NVM write to complete
 
     def clear_interrupt(self):
         """Clear pending GPO interrupt by reading IT_STS_Dyn.
