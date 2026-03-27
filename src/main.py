@@ -1,9 +1,9 @@
 """
 TapUI_mc — entry point.
 
-Reads the ST25DV16K NFC tag via I2C and drives the WS2812 LED ring.
-Tag is polled every POLL_MS as a fallback; the GPO interrupt (GP15,
-active-low) triggers an immediate read when the phone writes to the tag.
+Interrupt-driven: the ST25DV16K GPO pin (GP15, active-low) asserts when
+the phone writes to the tag via NFC. The Pico only accesses I2C on that
+event, leaving the bus free for NFC the rest of the time.
 
 Pin assignments (Raspberry Pi Pico):
   GP4   I2C0 SDA  → ST25DV16K SDA
@@ -22,17 +22,16 @@ from st25dv import ST25DV
 from led_ring import LEDRing
 
 # ── Hardware config ────────────────────────────────────────────────────
-I2C_SDA  = 4
-I2C_SCL  = 5
-GPO_PIN      = 15
-LED_PIN      = 28
-NUM_LEDS     = 16
+I2C_SDA       = 4
+I2C_SCL       = 5
+GPO_PIN       = 15
+LED_PIN       = 28
+NUM_LEDS      = 16
 HEARTBEAT_PIN = "LED"  # onboard LED (Pico W — routed via WiFi chip)
 
 # ── Timing ────────────────────────────────────────────────────────────
-FRAME_MS      = 16    # ~60 fps for smooth LED animation
-HEARTBEAT_MS  = 500   # onboard LED toggle interval
-POLL_MS       = 500   # fallback tag poll interval
+FRAME_MS     = 16    # ~60 fps for smooth LED animation
+HEARTBEAT_MS = 500   # onboard LED toggle interval
 
 # ── Interrupt flag (set in IRQ context, cleared in main loop) ─────────
 _tag_written = False
@@ -56,37 +55,46 @@ def main():
     ring      = LEDRing(Pin(LED_PIN), NUM_LEDS)
     heartbeat = Pin(HEARTBEAT_PIN, Pin.OUT)
 
-    # Configure GPO for RF-write interrupt, then attach Pico IRQ.
+    # ── Startup NDEF check ────────────────────────────────────────────
+    # Report tag contents before any writes so we can see if something
+    # at startup is erasing the NDEF record.
+    try:
+        raw = tag.read_ndef_text()
+        print("startup NDEF:", raw)
+    except Exception as e:
+        print("startup NDEF read error:", e)
+
+    # ── Configure GPO ────────────────────────────────────────────────
     try:
         tag.configure_gpo_rf_write()
         tag.clear_interrupt()
     except OSError as e:
-        print("GPO config failed (check I2C password?):", e)
+        print("GPO config failed:", e)
 
+    # ── Check NDEF again after GPO config ────────────────────────────
+    try:
+        raw = tag.read_ndef_text()
+        print("post-config NDEF:", raw)
+    except Exception as e:
+        print("post-config NDEF read error:", e)
+
+    # ── GPO interrupt ────────────────────────────────────────────────
     gpo = Pin(GPO_PIN, Pin.IN, Pin.PULL_UP)
     gpo.irq(trigger=Pin.IRQ_FALLING, handler=_gpo_irq)
 
-    # Do one initial read so we start with whatever is already on the tag.
     pattern = "off"
-    try:
-        raw = tag.read_ndef_text()
-        if raw:
-            pattern = json.loads(raw).get("pattern", "off")
-    except Exception as e:
-        print("initial read error:", e)
+    if raw:
+        pattern = json.loads(raw).get("pattern", "off")
 
     last_heartbeat_ms = 0
-    last_poll_ms      = 0
-    print("TapUI_mc ready")
+    print("TapUI_mc ready — pattern:", pattern)
 
     while True:
         now_ms = time.ticks_ms()
 
-        # ── Read tag (GPO interrupt or poll fallback) ─────────────────
-        due = _tag_written or time.ticks_diff(now_ms, last_poll_ms) >= POLL_MS
-        if due:
+        # ── Handle GPO interrupt ──────────────────────────────────────
+        if _tag_written:
             _tag_written = False
-            last_poll_ms = now_ms
             try:
                 raw = tag.read_ndef_text()
                 if raw:
