@@ -68,8 +68,8 @@ def check_area1_security(i2c):
     print(f"  RFA1SS: {hex(rfa1)}")
     read_prot  = (rfa1 >> 2) & 0x03
     write_prot = (rfa1 >> 4) & 0x03
-    print(f"  Read protection:  {'open (OK)' if read_prot == 0 else f'PROTECTED (level {read_prot})'}")
-    print(f"  Write protection: {'open (OK)' if write_prot == 0 else f'PROTECTED (level {write_prot})'}")
+    print("  Read protection:  " + ("open (OK)" if read_prot == 0 else "PROTECTED (level {})".format(read_prot)))
+    print("  Write protection: " + ("open (OK)" if write_prot == 0 else "PROTECTED (level {})".format(write_prot)))
 
     if read_prot != 0:
         print("  Opening area 1 read access (using default password)...")
