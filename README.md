@@ -36,7 +36,7 @@ The WS2812 is powered from 5V (VBUS) and requires ≥3.5V logic high; the Pico o
 | VBUS | VDD | 5V from USB |
 | GND | GND | |
 
-**Note:** The TXS0102 is a bidirectional auto-direction shifter with a weak internal pull-up. It works for this application but has marginal rise times at WS2812's 800kHz data rate — if you see glitchy LEDs, try shortening the wire between B1 and DIN.
+**Note:** The TXS0102 supports up to 24Mbps (push-pull); WS2812 runs at 800kHz, well within spec.
 
 ## Deploying
 
