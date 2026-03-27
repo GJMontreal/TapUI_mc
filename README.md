@@ -40,13 +40,22 @@ The WS2812 is powered from 5V (VBUS) and requires ≥3.5V logic high; the Pico o
 
 ## Deploying
 
+### 1. Install MicroPython on the Pico
+
+1. Download the latest MicroPython `.uf2` for the Pico from [micropython.org/download/RPI_PICO](https://micropython.org/download/RPI_PICO/)
+2. Hold the **BOOTSEL** button on the Pico, plug it into USB, then release the button
+3. It mounts as a drive called `RPI-RP2` — drag the `.uf2` onto it
+4. The Pico reboots automatically into MicroPython
+
+### 2. Install mpremote
+
 Install [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html):
 
 ```
 pip install mpremote
 ```
 
-Copy source files (Pico must have MicroPython firmware installed):
+### 3. Copy source files
 
 ```
 mpremote cp src/st25dv.py :st25dv.py
@@ -54,7 +63,7 @@ mpremote cp src/led_ring.py :led_ring.py
 mpremote cp src/main.py :main.py
 ```
 
-Run interactively without writing to flash:
+Run interactively without persisting to flash:
 
 ```
 mpremote run src/main.py
