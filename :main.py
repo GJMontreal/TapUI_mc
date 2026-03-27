@@ -1,16 +1,16 @@
 """
 TapUI_mc — entry point.
 
-Interrupt-driven: the ST25DV16K GPO pin asserts (active-low) when the iOS
+Interrupt-driven: the ST25DV64K GPO pin asserts (active-low) when the iOS
 app finishes an NFC write. A Pico IRQ sets a flag; the main loop reads the
 tag and updates the LED ring only when new data arrives.
 
 Between writes the main loop keeps running to animate the LEDs smoothly.
 
 Pin assignments (Raspberry Pi Pico):
-  GP4   I2C0 SDA  → ST25DV16K SDA
-  GP5   I2C0 SCL  → ST25DV16K SCL
-  GP15  GPO input → ST25DV16K GPO  (active-low, needs PULL_UP)
+  GP4   I2C0 SDA  → ST25DV64K SDA
+  GP5   I2C0 SCL  → ST25DV64K SCL
+  GP15  GPO input → ST25DV64K GPO  (active-low, needs PULL_UP)
   GP25  Onboard LED (heartbeat)
   GP28  LED data  → WS2812 DIN
 """
@@ -29,7 +29,7 @@ I2C_SCL  = 5
 GPO_PIN      = 15
 LED_PIN      = 28
 NUM_LEDS     = 16
-HEARTBEAT_PIN = "LED"  # onboard LED (Pico W — routed via WiFi chip)
+HEARTBEAT_PIN = 25    # onboard LED
 
 # ── Timing ────────────────────────────────────────────────────────────
 FRAME_MS       = 16    # ~60 fps for smooth LED animation

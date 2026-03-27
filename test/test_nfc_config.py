@@ -1,5 +1,5 @@
 """
-ST25DV64K NFC configuration diagnostic and repair.
+ST25DV16K NFC configuration diagnostic and repair.
 
 Checks whether the RF interface is enabled and memory area 1 is
 readable via NFC, then writes a simple NDEF Text record so you can
@@ -84,9 +84,9 @@ def check_cc(i2c):
     i2c.writeto(USER_ADDR, bytes([0x00, 0x00]))
     cc = i2c.readfrom(USER_ADDR, 4)
     print(f"  CC: {[hex(b) for b in cc]}")
-    # Byte 2: MLEN — 0xFF signals 64Kbit tag using 4-byte CC
+    # Byte 2: MLEN — 0xFF signals 16Kbit tag using 4-byte CC
     if cc[2] != 0xFF:
-        print(f"  MLEN is {hex(cc[2])}, expected 0xFF for ST25DV64K — fixing...")
+        print(f"  MLEN is {hex(cc[2])}, expected 0xFF for ST25DV16K — fixing...")
         fixed_cc = bytes([cc[0], cc[1], 0xFF, cc[3]])
         i2c.writeto(USER_ADDR, bytes([0x00, 0x00]) + fixed_cc)
         time.sleep_ms(5)

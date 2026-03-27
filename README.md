@@ -1,12 +1,12 @@
 # TapUI_mc
 
-MicroPython firmware for a Raspberry Pi Pico (RP2040) — the microcontroller side of the TapUI NFC demo. The Pico reads a JSON payload written to an ST25DV64K NFC tag by the [TapUI iOS app](../TapUI), drives a 16-LED WS2812 ring to match the requested pattern, and writes its uptime back to the tag.
+MicroPython firmware for a Raspberry Pi Pico (RP2040) — the microcontroller side of the TapUI NFC demo. The Pico reads a JSON payload written to an ST25DV16K NFC tag by the [TapUI iOS app](../TapUI), drives a 16-LED WS2812 ring to match the requested pattern, and writes its uptime back to the tag.
 
 ## Wiring
 
-### Pico → ST25DV64K
+### Pico → ST25DV16K
 
-| Pico | ST25DV64K | Notes |
+| Pico | ST25DV16K | Notes |
 |------|-----------|-------|
 | GP4 | SDA | 4.7kΩ pull-up to 3.3V |
 | GP5 | SCL | 4.7kΩ pull-up to 3.3V |

@@ -1,5 +1,5 @@
 """
-ST25DV64K wiring verification.
+ST25DV16K wiring verification.
 
 Checks I2C connectivity, reads the Capability Container, and attempts
 a read/write roundtrip on the NDEF payload.

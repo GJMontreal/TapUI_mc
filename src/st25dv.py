@@ -1,5 +1,5 @@
 """
-Minimal ST25DV64K I2C driver.
+Minimal ST25DV16K I2C driver.
 
 Reads and writes NDEF Text records from/to the user memory area.
 The iOS app (TapUI) writes a JSON NDEF Text payload; this driver
