@@ -11,6 +11,7 @@ Pin assignments (Raspberry Pi Pico):
   GP4   I2C0 SDA  → ST25DV64K SDA
   GP5   I2C0 SCL  → ST25DV64K SCL
   GP15  GPO input → ST25DV64K GPO  (active-low, needs PULL_UP)
+  GP25  Onboard LED (heartbeat)
   GP28  LED data  → WS2812 DIN
 """
 
@@ -25,12 +26,14 @@ from led_ring import LEDRing
 # ── Hardware config ────────────────────────────────────────────────────
 I2C_SDA  = 4
 I2C_SCL  = 5
-GPO_PIN  = 15
-LED_PIN  = 28
-NUM_LEDS = 16
+GPO_PIN      = 15
+LED_PIN      = 28
+NUM_LEDS     = 16
+HEARTBEAT_PIN = 25    # onboard LED
 
 # ── Timing ────────────────────────────────────────────────────────────
 FRAME_MS       = 16    # ~60 fps for smooth LED animation
+HEARTBEAT_MS   = 500   # onboard LED toggle interval
 UPTIME_WRITE_S = 5     # how often to write uptime back to tag
 
 # ── Interrupt flag (set in IRQ context, cleared in main loop) ─────────
@@ -50,9 +53,10 @@ def _set_tag_written(_arg):
 def main():
     global _tag_written
 
-    i2c = I2C(0, sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=400_000)
-    tag = ST25DV(i2c)
-    ring = LEDRing(Pin(LED_PIN), NUM_LEDS)
+    i2c       = I2C(0, sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=400_000)
+    tag       = ST25DV(i2c)
+    ring      = LEDRing(Pin(LED_PIN), NUM_LEDS)
+    heartbeat = Pin(HEARTBEAT_PIN, Pin.OUT)
 
     # Configure GPO for RF-write interrupt, then attach Pico IRQ.
     try:
@@ -73,8 +77,9 @@ def main():
     except Exception as e:
         print("initial read error:", e)
 
-    last_uptime_write = 0
-    start_ms = time.ticks_ms()
+    last_uptime_write   = 0
+    last_heartbeat_ms   = 0
+    start_ms            = time.ticks_ms()
     print("TapUI_mc ready — waiting for NFC writes")
 
     while True:
@@ -103,6 +108,11 @@ def main():
                 last_uptime_write = uptime_s
             except Exception as e:
                 print("write error:", e)
+
+        # ── Heartbeat ─────────────────────────────────────────────────
+        if time.ticks_diff(now_ms, last_heartbeat_ms) >= HEARTBEAT_MS:
+            heartbeat.toggle()
+            last_heartbeat_ms = now_ms
 
         time.sleep_ms(FRAME_MS)
 
