@@ -34,7 +34,7 @@ _GPO_CTRL_REG   = 0x0000  # static GPO configuration (requires security session)
 _I2C_PWD_REG    = 0x0900  # I2C password presentation register
 
 # Dynamic register addresses (no password needed)
-_GPO_CTRL_DYN   = 0x2000  # dynamic GPO enable (bit 0: GPO_EN_DYN)
+_GPO_CTRL_DYN   = 0x2000  # dynamic GPO enable (bit 7: GPO_EN — no password required)
 _IT_STS_DYN     = 0x2005  # interrupt status — reading this clears all flags
 
 # GPO_CTRL bit masks
@@ -145,12 +145,19 @@ class ST25DV:
         needed). Uses the factory-default I2C password (all zeros).
         """
         # Static register — persists in NVM, requires security session
+        # Static register (NVM) — persists across power cycles, requires security session
         self._open_security_session()
         self._i2c.writeto(
             _SYS_ADDR,
             bytes([_GPO_CTRL_REG >> 8, _GPO_CTRL_REG & 0xFF, _GPO_EN | _RF_WRITE_BIT]),
         )
         time.sleep_ms(10)  # wait for NVM write to complete
+
+        # Dynamic register — enables GPO output for current session, no password needed
+        self._i2c.writeto(
+            _SYS_ADDR,
+            bytes([_GPO_CTRL_DYN >> 8, _GPO_CTRL_DYN & 0xFF, _GPO_EN]),
+        )
 
     def clear_interrupt(self):
         """Clear pending GPO interrupt by reading IT_STS_Dyn.
