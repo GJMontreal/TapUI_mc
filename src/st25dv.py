@@ -13,14 +13,32 @@ NDEF Text record payload format:
   status_byte (lang_len in low 6 bits, UTF-8 = 0 in bit 7)
   language_code ("en")
   text (JSON string)
+
+GPO interrupt:
+  configure_gpo_rf_write() programs the ST25DV GPO pin to assert (active-low)
+  whenever the NFC side completes a write. Call once at startup, then connect
+  GPO to a Pico GPIO with PULL_UP and trigger an IRQ on IRQ_FALLING.
+  Call clear_interrupt() after handling to de-assert GPO.
 """
 
 import time
 from machine import I2C
 
-_ADDR = 0x53       # ST25DV user memory I2C address (7-bit)
-_PAGE  = 4         # I2C write granularity (bytes); writes must be 4-byte aligned
+_ADDR           = 0x53    # user memory I2C address (7-bit)
+_SYS_ADDR       = 0x57    # system config I2C address (7-bit)
+_PAGE           = 4       # I2C write granularity; writes must be 4-byte aligned
 _WRITE_DELAY_MS = 5
+
+# System config register addresses
+_GPO_CTRL_REG   = 0x0000  # static GPO configuration (requires security session)
+_I2C_PWD_REG    = 0x0900  # I2C password presentation register
+
+# Dynamic register addresses (no password needed)
+_IT_STS_DYN     = 0x2005  # interrupt status — reading this clears all flags
+
+# GPO_CTRL bit masks
+_GPO_EN         = 0x80    # global GPO enable
+_RF_WRITE_BIT   = 0x01    # assert GPO when RF write completes
 
 
 class ST25DV:
@@ -102,3 +120,40 @@ class ST25DV:
         """Write a new NDEF Text record to the tag."""
         image = self._build_ndef_text(text)
         self._write_block(0x0000, image)
+
+    # ------------------------------------------------------------------
+    # GPO interrupt support
+    # ------------------------------------------------------------------
+
+    def _open_security_session(self, password: bytes = b"\x00" * 8):
+        """Present the I2C password to open a security session.
+
+        Factory default password is 8 zero bytes. Must be called before
+        writing to write-protected system config registers (e.g. GPO_CTRL).
+        """
+        # Protocol: 2-byte reg addr + 8-byte pwd + 0x09 validation + 8-byte pwd
+        msg = bytes([_I2C_PWD_REG >> 8, _I2C_PWD_REG & 0xFF])
+        msg += password + b"\x09" + password
+        self._i2c.writeto(_SYS_ADDR, msg)
+
+    def configure_gpo_rf_write(self):
+        """Configure GPO to assert (active-low) when an RF write completes.
+
+        Uses the factory-default I2C password (all zeros). If the password
+        has been changed this will raise an OSError — configure the tag
+        manually or update the password argument.
+        """
+        self._open_security_session()
+        self._i2c.writeto(
+            _SYS_ADDR,
+            bytes([_GPO_CTRL_REG >> 8, _GPO_CTRL_REG & 0xFF, _GPO_EN | _RF_WRITE_BIT]),
+        )
+
+    def clear_interrupt(self):
+        """Clear pending GPO interrupt by reading IT_STS_Dyn.
+
+        Must be called after handling an RF-write event so the GPO line
+        de-asserts and the next event can be detected.
+        """
+        self._i2c.writeto(_SYS_ADDR, bytes([_IT_STS_DYN >> 8, _IT_STS_DYN & 0xFF]))
+        self._i2c.readfrom(_SYS_ADDR, 1)

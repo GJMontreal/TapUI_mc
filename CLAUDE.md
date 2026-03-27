@@ -14,6 +14,7 @@ Sibling iOS project: `../TapUI` (Swift/SwiftUI).
 |--------------|----------|--------------------------|
 | I2C0 SDA     | GP4      | ST25DV64K SDA            |
 | I2C0 SCL     | GP5      | ST25DV64K SCL            |
+| GPO input    | GP15     | ST25DV64K GPO (active-low, PULL_UP) |
 | WS2812 DIN   | GP28     | LED ring data in         |
 
 - **NFC tag:** ST25DV64K — dual-interface EEPROM (NFC + I2C). iOS app writes NDEF; Pico reads/writes via I2C at address `0x53`.
@@ -67,7 +68,7 @@ main.py
   └── LEDRing (led_ring.py) — pattern rendering onto NeoPixel ring
 ```
 
-`main.py` runs a tight loop: read tag → update LEDs → (every 5 s) write uptime back to tag.
+`main.py` is interrupt-driven: the ST25DV GPO pin asserts active-low when an NFC write completes. A Pico falling-edge IRQ sets a flag via `micropython.schedule()`; the main loop reads the tag only when the flag is set. Between writes the loop runs at ~60 fps to keep LED animations smooth. Uptime is written back to the tag every 5 s.
 
 `st25dv.py` caches the CC on first write so it is never corrupted. Writes are page-aligned (4 bytes) with a 5 ms inter-page delay as required by the ST25DV64K datasheet.
 
@@ -78,4 +79,6 @@ main.py
 - MicroPython only — no CircuitPython (different `neopixel` API).
 - Do not reformat or shrink files with `mpy-cross` unless flash space becomes an issue; readability is preferred.
 - The ST25DV64K I2C address (`0x53`) conflicts with some sensors. Verify with `mpremote exec "from machine import I2C, Pin; print(I2C(0, sda=Pin(4), scl=Pin(5)).scan())"` if the tag is not responding.
-- Concurrent NFC + I2C access is not guarded. The uptime write interval (5 s) is intentionally long to minimize contention with the iOS app.
+- **GPO configuration** uses the factory-default I2C password (8 × `0x00`). Writing `GPO_CTRL` requires opening a security session via the `I2C_PWD` register at `0x0900` on I2C address `0x57`. If the password has been changed the call will silently fail — check with `mpremote run` and watch for the "GPO config failed" log line.
+- I2C is never called from the IRQ handler — only from `micropython.schedule()` callbacks and the main loop. Do not add I2C calls directly in `_gpo_irq`.
+- The uptime write interval (5 s) is intentionally long to minimize I2C/NFC contention.
