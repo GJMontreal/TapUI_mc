@@ -34,6 +34,7 @@ _GPO_CTRL_REG   = 0x0000  # static GPO configuration (requires security session)
 _I2C_PWD_REG    = 0x0900  # I2C password presentation register
 
 # Dynamic register addresses (no password needed)
+_GPO_CTRL_DYN   = 0x2000  # dynamic GPO enable (bit 0: GPO_EN_DYN)
 _IT_STS_DYN     = 0x2005  # interrupt status — reading this clears all flags
 
 # GPO_CTRL bit masks
@@ -139,14 +140,20 @@ class ST25DV:
     def configure_gpo_rf_write(self):
         """Configure GPO to assert (active-low) when an RF write completes.
 
-        Uses the factory-default I2C password (all zeros). If the password
-        has been changed this will raise an OSError — configure the tag
-        manually or update the password argument.
+        Writes both the static GPO_CTRL register (persists across power cycles,
+        requires security session) and GPO_CTRL_Dyn (runtime enable, no session
+        needed). Uses the factory-default I2C password (all zeros).
         """
+        # Static register — persists in NVM, requires security session
         self._open_security_session()
         self._i2c.writeto(
             _SYS_ADDR,
             bytes([_GPO_CTRL_REG >> 8, _GPO_CTRL_REG & 0xFF, _GPO_EN | _RF_WRITE_BIT]),
+        )
+        # Dynamic register — enables GPO for current session
+        self._i2c.writeto(
+            _SYS_ADDR,
+            bytes([_GPO_CTRL_DYN >> 8, _GPO_CTRL_DYN & 0xFF, 0x01]),
         )
 
     def clear_interrupt(self):
