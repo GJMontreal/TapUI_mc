@@ -14,19 +14,18 @@ from machine import Pin
 
 GPO_PIN = 15
 
-MONITOR_S = 30
-
 gpo  = Pin(GPO_PIN, Pin.IN, Pin.PULL_UP)
 last = gpo.value()
-print("Monitoring GP{} for {}s — current state: {}".format(GPO_PIN, MONITOR_S, "HIGH" if last else "LOW"))
+print("Monitoring GP{} — current state: {}".format(GPO_PIN, "HIGH" if last else "LOW"))
 print("Short GP{} to GND to verify wiring, or wave the phone near the tag.".format(GPO_PIN))
+print("Ctrl-C to stop.")
 
-deadline = time.ticks_add(time.ticks_ms(), MONITOR_S * 1000)
-while time.ticks_diff(deadline, time.ticks_ms()) > 0:
-    val = gpo.value()
-    if val != last:
-        print("GP{} -> {}".format(GPO_PIN, "HIGH" if val else "LOW"))
-        last = val
-    time.sleep_ms(10)
-
-print("Done.")
+try:
+    while True:
+        val = gpo.value()
+        if val != last:
+            print("GP{} -> {}".format(GPO_PIN, "HIGH" if val else "LOW"))
+            last = val
+        time.sleep_ms(10)
+except KeyboardInterrupt:
+    print("Stopped.")
