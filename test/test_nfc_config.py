@@ -17,7 +17,7 @@ USER_ADDR = 0x53
 SYS_ADDR  = 0x57
 
 # Dynamic register addresses (no password required)
-RF_MNGT_DYN  = 0x2003   # RF management — bit 0: RF_DISABLE, bit 1: RF_SLEEP
+RF_MNGT_DYN  = 0x2002   # RF management — bit 0: RF_DISABLE, bit 1: RF_SLEEP
 IT_STS_DYN   = 0x2005   # interrupt status (read to clear)
 
 # Static register addresses (require security session to write)
@@ -47,19 +47,41 @@ def open_security_session(i2c, password: bytes = b"\x00" * 8):
 
 def check_rf_management(i2c):
     print("\n── RF management ──")
-    dyn = read_sys(i2c, RF_MNGT_DYN)[0]
-    print(f"  RF_MNGT_Dyn: {hex(dyn)}")
-    rf_disabled = bool(dyn & 0x01)
-    rf_sleep    = bool(dyn & 0x02)
-    print(f"  RF_DISABLE: {'SET — RF interface is off!' if rf_disabled else 'clear (OK)'}")
-    print(f"  RF_SLEEP:   {'SET' if rf_sleep else 'clear (OK)'}")
 
-    if rf_disabled or rf_sleep:
-        print("  Clearing RF_DISABLE and RF_SLEEP...")
-        write_sys(i2c, RF_MNGT_DYN, bytes([0x00]))
+    # Read static register first (persists across power cycles)
+    stat = read_sys(i2c, RF_MNGT_STAT)[0]
+    print(f"  RF_MNGT static (0x{RF_MNGT_STAT:04x}): {hex(stat)}")
+    print(f"  Static RF_DISABLE: {'SET' if stat & 0x01 else 'clear (OK)'}")
+
+    # Read dynamic register (current runtime state)
+    try:
         dyn = read_sys(i2c, RF_MNGT_DYN)[0]
-        print(f"  RF_MNGT_Dyn after fix: {hex(dyn)}")
-    return not rf_disabled
+        print(f"  RF_MNGT_Dyn (0x{RF_MNGT_DYN:04x}): {hex(dyn)}")
+        rf_disabled = bool(dyn & 0x01)
+        rf_sleep    = bool(dyn & 0x02)
+        print(f"  Dynamic RF_DISABLE: {'SET — RF interface is off!' if rf_disabled else 'clear (OK)'}")
+        print(f"  Dynamic RF_SLEEP:   {'SET' if rf_sleep else 'clear (OK)'}")
+    except OSError as e:
+        print(f"  RF_MNGT_Dyn read failed: {e}")
+        rf_disabled = bool(stat & 0x01)
+
+    if rf_disabled or (stat & 0x01):
+        print("  Opening security session and clearing RF_DISABLE in static register...")
+        open_security_session(i2c)
+        time.sleep_ms(10)
+        write_sys(i2c, RF_MNGT_STAT, bytes([0x00]))
+        time.sleep_ms(20)
+        stat = read_sys(i2c, RF_MNGT_STAT)[0]
+        print(f"  RF_MNGT static after fix: {hex(stat)}")
+
+        print("  Clearing dynamic RF_DISABLE...")
+        try:
+            write_sys(i2c, RF_MNGT_DYN, bytes([0x00]))
+            time.sleep_ms(50)
+        except OSError as e:
+            print(f"  Dynamic write failed (may need power cycle): {e}")
+
+    return True
 
 
 def check_area1_security(i2c):
