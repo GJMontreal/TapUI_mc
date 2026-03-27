@@ -1,11 +1,9 @@
 """
 TapUI_mc — entry point.
 
-Interrupt-driven: the ST25DV16K GPO pin asserts (active-low) when the iOS
-app finishes an NFC write. A Pico IRQ sets a flag; the main loop reads the
-tag and updates the LED ring only when new data arrives.
-
-Between writes the main loop keeps running to animate the LEDs smoothly.
+Reads the ST25DV16K NFC tag via I2C and drives the WS2812 LED ring.
+Tag is polled every POLL_MS as a fallback; the GPO interrupt (GP15,
+active-low) triggers an immediate read when the phone writes to the tag.
 
 Pin assignments (Raspberry Pi Pico):
   GP4   I2C0 SDA  → ST25DV16K SDA
@@ -34,6 +32,7 @@ HEARTBEAT_PIN = "LED"  # onboard LED (Pico W — routed via WiFi chip)
 # ── Timing ────────────────────────────────────────────────────────────
 FRAME_MS      = 16    # ~60 fps for smooth LED animation
 HEARTBEAT_MS  = 500   # onboard LED toggle interval
+POLL_MS       = 500   # fallback tag poll interval
 
 # ── Interrupt flag (set in IRQ context, cleared in main loop) ─────────
 _tag_written = False
@@ -77,19 +76,24 @@ def main():
         print("initial read error:", e)
 
     last_heartbeat_ms = 0
-    print("TapUI_mc ready — waiting for NFC writes")
+    last_poll_ms      = 0
+    print("TapUI_mc ready")
 
     while True:
         now_ms = time.ticks_ms()
 
-        # ── Handle tag write event ────────────────────────────────────
-        if _tag_written:
+        # ── Read tag (GPO interrupt or poll fallback) ─────────────────
+        due = _tag_written or time.ticks_diff(now_ms, last_poll_ms) >= POLL_MS
+        if due:
             _tag_written = False
+            last_poll_ms = now_ms
             try:
                 raw = tag.read_ndef_text()
                 if raw:
-                    pattern = json.loads(raw).get("pattern", "off")
-                    print("pattern:", pattern)
+                    new_pattern = json.loads(raw).get("pattern", "off")
+                    if new_pattern != pattern:
+                        pattern = new_pattern
+                        print("pattern:", pattern)
                 tag.clear_interrupt()
             except Exception as e:
                 print("read error:", e)
