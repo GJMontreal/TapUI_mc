@@ -68,3 +68,13 @@ Run interactively without persisting to flash:
 ```
 mpremote run src/main.py
 ```
+
+## Verification
+
+Before running the main firmware, verify the LED ring is wired correctly:
+
+```
+mpremote run test/test_led_ring.py
+```
+
+This runs three tests in sequence: color channels (red/green/blue), a per-pixel walk across all 16 LEDs, and a brightness ramp. Output is printed to the terminal.
