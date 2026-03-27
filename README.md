@@ -15,15 +15,28 @@ MicroPython firmware for a Raspberry Pi Pico (RP2040) — the microcontroller si
 | GND | GND | |
 | GND | E0 | Ties I2C address to 0x53 |
 
-### Pico → WS2812 ring
+### Pico → TXS0102 → WS2812 ring
 
-| Pico | WS2812 | Notes |
-|------|--------|-------|
-| GP28 | DIN | 300–500Ω series resistor recommended |
-| 3V3 | VDD | See note below |
+The WS2812 is powered from 5V (VBUS) and requires ≥3.5V logic high; the Pico outputs 3.3V. A TXS0102 level shifter bridges the two.
+
+| Pico | TXS0102 | Notes |
+|------|---------|-------|
+| 3V3 | VCCA | Low-voltage reference |
+| VBUS | VCCB | High-voltage reference |
+| 3V3 | OE | Always enabled |
+| GND | GND | |
+| GP28 | A1 | Data in (3.3V side) |
+
+| TXS0102 | WS2812 | Notes |
+|---------|--------|-------|
+| B1 | DIN | Data out (5V side); 300–500Ω series resistor recommended |
+
+| Pico | WS2812 | |
+|------|--------|-|
+| VBUS | VDD | 5V from USB |
 | GND | GND | |
 
-**WS2812 power:** WS2812B are spec'd at 3.5–5.3V, so 3.3V is slightly out of spec. In practice they work reliably at 3.3V — just dimmer. The upside is that 3.3V data also satisfies the logic-high threshold (0.7 × 3.3V = 2.31V), eliminating any level-shifting concern. The Pico's onboard 3.3V regulator is rated 300mA; 16 LEDs at demo brightness levels stay well under that.
+**Note:** The TXS0102 is a bidirectional auto-direction shifter with a weak internal pull-up. It works for this application but has marginal rise times at WS2812's 800kHz data rate — if you see glitchy LEDs, try shortening the wire between B1 and DIN.
 
 ## Deploying
 
